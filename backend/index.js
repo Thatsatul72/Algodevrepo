@@ -8,14 +8,11 @@ const bcrypt = require('bcryptjs');
 const dotenv= require('dotenv')
 dotenv.config();
 
-
-
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 DBConnection();
-
 
 app.get("/", (req, res)=> {
     res.send("Hello, world!");
@@ -58,6 +55,45 @@ app.post("/register", async (req, res)=> {
             message: "You have successfully registered!", user });
     } catch (error) {
         console.log(error);
+        res.status(500).send("An error occurred during registration");
+    }
+});
+
+app.post("/login", async (req, res) => {
+    try {
+        // Get email and password from request body
+        const { email, password } = req.body;
+
+        // Check that both email and password are provided
+        if (!(email && password)) {
+            return res.status(400).send("Please enter both email and password");
+        }
+
+        // Check if user exists in the database
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).send("User not registered. Please register first.");
+        }
+
+        // Check if the provided password matches the hashed password in the database
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(400).send("Invalid email or password");
+        }
+
+        // Generate a token for the user
+        const token = jwt.sign({ id: user._id, email }, process.env.SECRET_KEY, {
+            expiresIn: "1d"
+        });
+
+        // Send the token to the client
+        res.status(200).json({ 
+            message: "Login successful", 
+            token 
+        });
+    } catch (error) {
+        console.log(error);
+        res.status(500).send("An error occurred during login");
     }
 });
 
